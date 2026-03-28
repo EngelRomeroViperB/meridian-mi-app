@@ -3,8 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { ErrorState } from "@/components/common/error-state";
@@ -29,28 +28,11 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 
 export default function MoneyPage() {
   const { t } = useLocale();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingFinance, setEditingFinance] = useState<Finance | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const shouldOpenNewForm = searchParams.get("new") === "1";
-
-  function closeForm() {
-    setFormOpen(false);
-    setEditingFinance(null);
-    if (shouldOpenNewForm) {
-      router.replace("/money");
-    }
-  }
-
-  useEffect(() => {
-    if (shouldOpenNewForm && !editingFinance) {
-      setFormOpen(true);
-    }
-  }, [shouldOpenNewForm, editingFinance]);
 
   const { data: finances = [], isLoading, isError, refetch } = useQuery<Finance[]>({
     queryKey: ["finances"],
@@ -63,13 +45,13 @@ export default function MoneyPage() {
   const createMutation = useMutation({
     mutationFn: (data: CreateFinanceInput) =>
       apiFetch("/api/finances", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["finances"] }); closeForm(); }
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["finances"] }); setFormOpen(false); }
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreateFinanceInput> }) =>
       apiFetch(`/api/finances?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["finances"] }); closeForm(); }
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["finances"] }); setFormOpen(false); setEditingFinance(null); }
   });
 
   const deleteMutation = useMutation({
@@ -107,7 +89,7 @@ export default function MoneyPage() {
             {t("money.projects")}
           </Link>
           <button
-            onClick={() => router.push("/money?new=1")}
+            onClick={() => setFormOpen(true)}
             className="flex items-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white transition hover:opacity-90"
           >
             <Plus size={16} />
@@ -143,7 +125,7 @@ export default function MoneyPage() {
 
       <FinanceForm
         open={formOpen}
-        onClose={closeForm}
+        onClose={() => { setFormOpen(false); setEditingFinance(null); }}
         onSubmit={handleSubmit}
         initialData={editingFinance}
         projectOptions={projectOptions}
